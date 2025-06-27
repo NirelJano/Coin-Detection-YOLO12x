@@ -8,7 +8,7 @@ model = YOLO('best.pt')
 value_map = {'One': 1, 'Two': 2, 'Five': 5, 'Ten': 10}
 
 # טען תמונה מהדיסק - החלף לנתיב שלך
-img_path = 'path/to/your/image.jpg'
+img_path = '/Users/innadaymand/Desktop/Coin Detection YOLO12x/WhatsApp Unknown 2025-06-27 at 15.48.50 2/WhatsApp Image 2025-06-27 at 12.14.41.jpeg'
 img = cv2.imread(img_path)
 
 if img is None:
@@ -16,7 +16,7 @@ if img is None:
     exit(1)
 
 # הרץ חיזוי
-results = model.predict(img)
+results = model.predict(img, conf=0.5, agnostic_nms=True)
 
 total = 0
 
