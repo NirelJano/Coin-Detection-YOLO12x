@@ -1,5 +1,6 @@
 from ultralytics import YOLO
 import cv2
+import numpy as np
 
 # טען את המודל
 model = YOLO('best.pt')
@@ -20,7 +21,6 @@ results = model.predict(img, conf=0.5, agnostic_nms=True)
 
 total = 0
 
-# צייר תיבות וסכום
 for r in results:
     boxes = r.boxes
     for box in boxes:
@@ -35,10 +35,26 @@ for r in results:
         # חישוב סכום לפי תווית
         total += value_map.get(label, 0)
 
-        # ציור תיבה
-        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cv2.putText(img, f"{label} {conf*100:.1f}%", (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+        # ציור תיבה מודגשת
+        thickness = 4  # עובי קו
+        color = (0, 255, 0)  # ירוק
+        cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness)
+
+        # הכנת הטקסט
+        text = f"{label} {conf*100:.1f}%"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 1.2
+        font_thickness = 3
+
+        # גודל הטקסט
+        (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, font_thickness)
+
+        # רקע טקסט כדי שיהיה ברור על התמונה
+        # נשרטט ריבוע מלא מתחת לטקסט
+        cv2.rectangle(img, (x1, y1 - text_height - baseline - 10), (x1 + text_width, y1), (0, 0, 0), -1)
+
+        # כתיבת הטקסט מעל הריבוע השחור
+        cv2.putText(img, text, (x1, y1 - 7), font, font_scale, color, font_thickness, cv2.LINE_AA)
 
 print(f"Total sum: {total}")
 
