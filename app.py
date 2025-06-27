@@ -1,36 +1,56 @@
-from flask import Flask, render_template, Response
-import cv2
+from flask import Flask, render_template, request, jsonify
 from ultralytics import YOLO
+import cv2
+import numpy as np
+import base64
 
 app = Flask(__name__)
-model = YOLO("best.pt")  # מסלול למודל שלך
-
-# מצלמה — אם 0 לא עובד, נסה 1 או 2
-camera = cv2.VideoCapture(0)
-
-def generate_frames():
-    while True:
-        success, frame = camera.read()
-        if not success:
-            break
-
-        # זיהוי אובייקטים על הפריים
-        results = model(frame, conf=0.5)
-        annotated_frame = results[0].plot()  # מצייר את התוצאות על התמונה
-
-        # שליחה לממשק ב־MJPEG
-        ret, buffer = cv2.imencode('.jpg', annotated_frame)
-        frame = buffer.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+model = YOLO('/Users/innadaymand/Desktop/Coin Detection YOLO12x/best.pt')
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/video')
-def video():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+@app.route('/predict', methods=['POST'])
+def predict():
+    data = request.json['image']
+    header, encoded = data.split(',', 1)
+    img_bytes = base64.b64decode(encoded)
+
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    results = model.predict(img)
+
+    boxes_data = []
+    total = 0
+
+    class_names = model.names  # שמות הקלאסים במודל
+    value_map = {'One': 1, 'Two': 2, 'Five': 5, 'Ten': 10}  # מיפוי ערכים
+
+    for r in results:
+        boxes = r.boxes
+        for i in range(len(boxes)):
+            box = boxes[i]
+            cls_id = int(box.cls.cpu().numpy())
+            conf = float(box.conf.cpu().numpy())
+            xyxy = box.xyxy.cpu().numpy().astype(int)[0]
+            x1, y1, x2, y2 = xyxy
+            label = class_names.get(cls_id, str(cls_id))
+
+            boxes_data.append({
+                'label': label,
+                'confidence': conf,
+                'xmin': x1,
+                'ymin': y1,
+                'xmax': x2,
+                'ymax': y2
+            })
+
+            total += value_map.get(label, 0)
+
+    return jsonify({'total': total, 'boxes': boxes_data})
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5001)

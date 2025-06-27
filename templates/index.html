@@ -1,10 +1,102 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Coin Detection</title>
+  <meta charset="UTF-8" />
+  <title>Simple Coin Detection</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0; padding: 20px;
+      background: #f0f0f0;
+    }
+    #video, #canvas {
+      max-width: 90vw;
+      border: 2px solid #444;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+    #total {
+      font-size: 24px;
+      margin-top: 15px;
+      color: green;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
-    <h1>Detect Using Camera</h1>
-    <img src="{{ url_for('video') }}" width="720">
+
+<h1>Simple Coin Detection</h1>
+
+<video id="video" autoplay muted playsinline></video><br />
+<canvas id="canvas"></canvas>
+
+<p>Coins Total: <span id="total">0</span></p>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const totalElem = document.getElementById('total');
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      video.srcObject = stream;
+    })
+    .catch(err => alert('Camera error: ' + err));
+
+  const hiddenCanvas = document.createElement('canvas');
+  const hiddenCtx = hiddenCanvas.getContext('2d');
+
+  async function sendFrame() {
+    if (!video.videoWidth || !video.videoHeight) {
+      requestAnimationFrame(sendFrame);
+      return;
+    }
+
+    hiddenCanvas.width = video.videoWidth;
+    hiddenCanvas.height = video.videoHeight;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    hiddenCtx.drawImage(video, 0, 0);
+
+    const dataURL = hiddenCanvas.toDataURL('image/jpeg');
+
+    try {
+      const response = await fetch('http://192.168.1.245:5001/predict', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ image: dataURL })
+      });
+      const data = await response.json();
+
+      totalElem.textContent = data.total || 0;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'red';
+      ctx.font = '16px Arial';
+      ctx.fillStyle = 'red';
+
+      data.boxes.forEach(box => {
+        const x = box.xmin;
+        const y = box.ymin;
+        const w = box.xmax - box.xmin;
+        const h = box.ymax - box.ymin;
+        ctx.strokeRect(x, y, w, h);
+        ctx.fillText(`${box.label} ${(box.confidence * 100).toFixed(1)}%`, x, y > 20 ? y - 5 : y + 15);
+      });
+
+    } catch(e) {
+      console.error('Fetch error:', e);
+    }
+
+    setTimeout(sendFrame, 2000);  // כל 2 שניות שולח תמונה חדשה
+  }
+
+  sendFrame();
+</script>
+
 </body>
 </html>
