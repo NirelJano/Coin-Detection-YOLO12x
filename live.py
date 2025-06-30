@@ -5,14 +5,14 @@ import cv2
 model = YOLO("best.pt")
 
 # ערכים כספיים לפי תוויות
-value_map = {'One': 1, 'Two': 2, 'Five': 5, 'Ten': 10}
+value_map = {'One': 1, 'Two': 2, 'Five': 5, 'Ten': 10,'10Ag':0.1, '50Ag': 0.5,}
 
 # שמירה על track_ids שכבר נספרו
 seen_ids = set()
 total_sum = 0
 
 # פתיחת מצלמה
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 if not cap.isOpened():
     print("Error: Could not open webcam.")
     exit()
@@ -29,7 +29,8 @@ while True:
         stream=True,  # חשוב! אחרת זה לא ייתן תוצאה כ־generator
         tracker="botsort.yaml",
         conf=0.5,
-        verbose=False
+        verbose=False,
+        vid_stride=2
     ))
 
     annotated_frame = result.plot()
@@ -69,7 +70,7 @@ while True:
     # הצגת סכום בש"ח
     cv2.putText(
         annotated_frame,
-        f"Total: {total_sum} \u20AA",
+        f"Total: {total_sum} Israeli Shekels",
         (10, 40),
         cv2.FONT_HERSHEY_SIMPLEX,
         1,
