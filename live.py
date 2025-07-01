@@ -5,14 +5,10 @@ import cv2
 model = YOLO("best.pt")
 
 # ערכים כספיים לפי תוויות
-value_map = {'One': 1, 'Two': 2, 'Five': 5, 'Ten': 10,'10Ag':0.1, '50Ag': 0.5,}
-
-# שמירה על track_ids שכבר נספרו
-seen_ids = set()
-total_sum = 0
+value_map = {'One': 1, 'Two': 2, 'Five': 5, 'Ten': 10, '10Ag': 0.1, '50Ag': 0.5}
 
 # פתיחת מצלמה
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(1)  # 0 עבור מצלמה ראשית, 1 עבור מצלמה שנייה וכו'
 if not cap.isOpened():
     print("Error: Could not open webcam.")
     exit()
@@ -35,6 +31,9 @@ while True:
 
     annotated_frame = result.plot()
 
+    # איפוס הסכום עבור הפריים הנוכחי
+    total_sum = 0
+
     boxes = result.boxes
 
     if boxes.id is not None:
@@ -49,12 +48,10 @@ while True:
             if w < 30 or h < 30:
                 continue
 
-            # אם זה track חדש → עדכן סכום
-            if track_id not in seen_ids:
-                seen_ids.add(track_id)
-                label = model.names[cls_id]
-                value = value_map.get(label, 0)
-                total_sum += value
+            # הוספת ערך המטבע לסכום הכולל של הפריים
+            label = model.names.get(cls_id, "Unknown")
+            value = value_map.get(label, 0)
+            total_sum += value
 
             # הדפסת Track ID מעל כל מטבע
             cv2.putText(
@@ -70,7 +67,7 @@ while True:
     # הצגת סכום בש"ח
     cv2.putText(
         annotated_frame,
-        f"Total: {total_sum} Israeli Shekels",
+        f"Total: {total_sum:.2f} ILS",
         (10, 40),
         cv2.FONT_HERSHEY_SIMPLEX,
         1,
