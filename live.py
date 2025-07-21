@@ -8,7 +8,7 @@ model = YOLO("best.pt")
 value_map = {'One': 1, 'Two': 2, 'Five': 5, 'Ten': 10, '10Ag': 0.1, '50Ag': 0.5}
 
 # פתיחת מצלמה
-cap = cv2.VideoCapture(1)  # 0 עבור מצלמה ראשית, 1 עבור מצלמה שנייה וכו'
+cap = cv2.VideoCapture(0)  # 0 עבור מצלמה ראשית, 1 עבור מצלמה שנייה וכו'
 if not cap.isOpened():
     print("Error: Could not open webcam.")
     exit()

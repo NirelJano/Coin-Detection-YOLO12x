@@ -8,7 +8,7 @@ model = YOLO('best.pt')
 value_map = {'One': 1, 'Two': 2, 'Five': 5, 'Ten': 10,'10Ag':0.1, '50Ag': 0.5,}
 
 # טען את התמונה
-img_path = '/Users/shachafemanoel/Documents/Coin-Detection-YOLO12x/WhatsApp Image 2025-06-15 at 12.26.49 (3).jpeg'
+img_path = '/Users/innadaymand/Documents/GitHub/Coin-Detection-YOLO12x/WhatsApp Image 2025-06-15 at 12.26.49 (3).jpeg'
 img = cv2.imread(img_path)
 
 if img is None:

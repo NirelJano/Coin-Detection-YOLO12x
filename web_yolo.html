@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <title>זיהוי מטבעות בדפדפן - YOLOv8 ONNX</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #111;
+            color: #fff;
+        }
+        #container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+        }
+        #controls {
+            margin: 2vh 0;
+            display: flex;
+            gap: 1em;
+        }
+        button {
+            font-size: 1.1em;
+            padding: 0.7em 1.5em;
+            border-radius: 8px;
+            border: none;
+            background: #2a9d8f;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:active {
+            background: #21867a;
+        }
+        #video, #canvas {
+            width: 98vw;
+            max-width: 700px;
+            height: 70vw;
+            max-height: 80vh;
+            background: #222;
+            border-radius: 12px;
+            margin-top: 2vh;
+            object-fit: contain;
+        }
+        #canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: 2;
+            pointer-events: none;
+        }
+        #video {
+            z-index: 1;
+        }
+        #spinner {
+            display: none;
+            margin-top: 3vh;
+            border: 8px solid #eee;
+            border-top: 8px solid #2a9d8f;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #error-msg {
+            color: #ff5555;
+            margin-top: 2vh;
+            font-size: 1.1em;
+        }
+        #model-upload {
+            margin-top: 2vh;
+        }
+    </style>
+    <!-- ONNX Runtime Web -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+</head>
+<body>
+    <div id="container">
+        <h1>זיהוי מטבעות בדפדפן (YOLOv8 ONNX)</h1>
+        <div id="controls">
+            <button id="switch-camera">החלף מצלמה</button>
+            <button id="toggle-detect">הפעל זיהוי בלייב</button>
+        </div>
+        <input type="file" id="model-upload" accept=".onnx">
+        <input type="text" id="model-url" placeholder="הדבק כאן קישור למודל ONNX" style="margin-top:1vh;max-width:90vw;width:400px;direction:ltr;" value="https://drive.google.com/uc?export=download&id=1qIqsNzKZsNjaOmQ-047kyzJMEI9Xj9eg">
+        <button id="load-url">טען מודל מכתובת</button>
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        <div id="spinner"></div>
+        <div id="error-msg"></div>
+    </div>
+    <script>
+    let video = document.getElementById('video');
+    let canvas = document.getElementById('canvas');
+    let switchBtn = document.getElementById('switch-camera');
+    let detectBtn = document.getElementById('toggle-detect');
+    let spinner = document.getElementById('spinner');
+    let errorMsg = document.getElementById('error-msg');
+    let modelUpload = document.getElementById('model-upload');
+    let modelUrlInput = document.getElementById('model-url');
+    let loadUrlBtn = document.getElementById('load-url');
+    let stream = null;
+    let useBackCamera = true;
+    let detecting = false;
+    let session = null;
+    let modelLoaded = false;
+    let classNames = ['One', 'Two', 'Five', 'Ten', '10Ag', '50Ag']; // עדכן לפי המודל שלך
+    let colors = ['#ff0','#0f0','#0ff','#f0f','#f00','#00f'];
+
+    async function startCamera() {
+        errorMsg.textContent = '';
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        let constraints = {
+            video: {
+                facingMode: useBackCamera ? { exact: "environment" } : "user",
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        };
+        try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+            await video.play();
+        } catch (e) {
+            errorMsg.textContent = 'לא ניתן להפעיל מצלמה: ' + e.message;
+        }
+    }
+
+    switchBtn.onclick = () => {
+        useBackCamera = !useBackCamera;
+        startCamera();
+    };
+
+    modelUpload.onchange = async (e) => {
+        let file = e.target.files[0];
+        if (!file) return;
+        spinner.style.display = '';
+        try {
+            let arrayBuffer = await file.arrayBuffer();
+            session = await ort.InferenceSession.create(arrayBuffer);
+            modelLoaded = true;
+            errorMsg.textContent = 'המודל נטען בהצלחה!';
+        } catch (err) {
+            errorMsg.textContent = 'שגיאה בטעינת המודל: ' + err;
+        }
+        spinner.style.display = 'none';
+    };
+
+    loadUrlBtn.onclick = async () => {
+        let url = modelUrlInput.value.trim();
+        if (!url) {
+            errorMsg.textContent = 'יש להזין קישור למודל';
+            return;
+        }
+        spinner.style.display = '';
+        try {
+            session = await ort.InferenceSession.create(url);
+            modelLoaded = true;
+            errorMsg.textContent = 'המודל נטען בהצלחה מהאינטרנט!';
+        } catch (err) {
+            errorMsg.textContent = 'שגיאה בטעינת המודל מהאינטרנט: ' + err;
+        }
+        spinner.style.display = 'none';
+    };
+
+    detectBtn.onclick = () => {
+        if (!modelLoaded) {
+            errorMsg.textContent = 'יש לטעון קובץ מודל ONNX קודם!';
+            return;
+        }
+        detecting = !detecting;
+        if (detecting) {
+            detectBtn.textContent = 'כבה זיהוי בלייב';
+            spinner.style.display = '';
+            detectLoop();
+        } else {
+            detectBtn.textContent = 'הפעל זיהוי בלייב';
+            spinner.style.display = 'none';
+        }
+    };
+
+    async function detectLoop() {
+        if (!detecting) return;
+        if (!session) return;
+        // קח פריים מהוידאו
+        let w = video.videoWidth;
+        let h = video.videoHeight;
+        canvas.width = w;
+        canvas.height = h;
+        let ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, w, h);
+        let imgData = ctx.getImageData(0, 0, w, h);
+        // עיבוד תמונה לכניסה למודל (resize, normalize...)
+        let inputTensor = preprocess(imgData, 416, 416); // גודל כניסה של YOLOv8
+        let feeds = {};
+        feeds[session.inputNames[0]] = inputTensor;
+        let results = await session.run(feeds);
+        let output = results[session.outputNames[0]];
+        // פענוח תוצאות
+        let boxes = postprocess(output.data, 0.4, 0.5, w, h);
+        // ציור בוקסות
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(video, 0, 0, w, h);
+        for (let box of boxes) {
+            ctx.strokeStyle = colors[box.classId % colors.length];
+            ctx.lineWidth = 3;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+            ctx.font = '18px Arial';
+            ctx.fillStyle = colors[box.classId % colors.length];
+            ctx.fillText(classNames[box.classId] + ' ' + (box.score*100).toFixed(1)+'%', box.x, box.y-5);
+        }
+        spinner.style.display = 'none';
+        if (detecting) setTimeout(detectLoop, 200); // כל 200ms
+    }
+
+    // עיבוד תמונה לכניסה למודל (resize, normalize)
+    function preprocess(imgData, targetW, targetH) {
+        // resize
+        let canvasTmp = document.createElement('canvas');
+        canvasTmp.width = targetW;
+        canvasTmp.height = targetH;
+        let ctxTmp = canvasTmp.getContext('2d');
+        ctxTmp.drawImage(video, 0, 0, targetW, targetH);
+        let d = ctxTmp.getImageData(0, 0, targetW, targetH).data;
+        // to float32, normalize 0-1, CHW
+        let arr = new Float32Array(targetW * targetH * 3);
+        for (let i = 0; i < targetW * targetH; ++i) {
+            arr[i] = d[i*4] / 255.0;      // R
+            arr[i+targetW*targetH] = d[i*4+1] / 255.0; // G
+            arr[i+2*targetW*targetH] = d[i*4+2] / 255.0; // B
+        }
+        return new ort.Tensor('float32', arr, [1, 3, targetH, targetW]);
+    }
+
+    // פענוח תוצאות YOLOv8 (פשוט)
+    function postprocess(data, confThresh, iouThresh, imgW, imgH) {
+        // data: flat array, shape [1, num_boxes, 11] (לפי המודל שלך)
+        let numBoxes = data.length / 11;
+        let boxes = [];
+        for (let i = 0; i < numBoxes; ++i) {
+            let offset = i * 11;
+            let conf = data[offset+4];
+            if (conf < confThresh) continue;
+            let classScores = data.slice(offset+5, offset+11);
+            let classId = classScores.indexOf(Math.max(...classScores));
+            let score = classScores[classId];
+            if (score < iouThresh) continue;
+            let cx = data[offset];
+            let cy = data[offset+1];
+            let w = data[offset+2];
+            let h = data[offset+3];
+            // YOLO: cx,cy,w,h -> x,y,w,h
+            let x = (cx - w/2) * imgW;
+            let y = (cy - h/2) * imgH;
+            boxes.push({x, y, width: w*imgW, height: h*imgH, classId, score});
+        }
+        return boxes;
+    }
+    window.onload = () => {
+        // טען אוטומטית את המודל מהקישור ברירת מחדל
+        if (modelUrlInput.value) {
+            loadUrlBtn.click();
+        }
+    };
+    </script>
+</body>
+</html> 
