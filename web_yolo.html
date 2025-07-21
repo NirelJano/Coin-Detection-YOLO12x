@@ -18,11 +18,14 @@
             align-items: center;
             justify-content: flex-start;
             min-height: 100vh;
+            width: 100vw;
+            box-sizing: border-box;
         }
         #controls {
             margin: 2vh 0;
             display: flex;
             gap: 1em;
+            flex-wrap: wrap;
         }
         button {
             font-size: 1.1em;
@@ -38,24 +41,26 @@
             background: #21867a;
         }
         #video, #canvas {
-            width: 98vw;
-            max-width: 700px;
-            height: 70vw;
-            max-height: 80vh;
+            width: 96vw;
+            max-width: 600px;
+            aspect-ratio: 4/3;
             background: #222;
             border-radius: 12px;
             margin-top: 2vh;
             object-fit: contain;
+            display: block;
         }
         #canvas {
             position: absolute;
-            left: 0;
-            top: 0;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
             z-index: 2;
             pointer-events: none;
         }
         #video {
             z-index: 1;
+            position: relative;
         }
         #spinner {
             display: none;
@@ -76,8 +81,22 @@
             margin-top: 2vh;
             font-size: 1.1em;
         }
-        #model-upload {
-            margin-top: 2vh;
+        #model-upload, #model-url, #load-url {
+            margin-top: 1vh;
+            max-width: 90vw;
+            width: 400px;
+            direction: ltr;
+            box-sizing: border-box;
+        }
+        @media (max-width: 600px) {
+            #video, #canvas {
+                max-width: 98vw;
+                width: 98vw;
+                aspect-ratio: 4/3;
+            }
+            #model-upload, #model-url, #load-url {
+                width: 98vw;
+            }
         }
     </style>
     <!-- ONNX Runtime Web -->
@@ -91,7 +110,7 @@
             <button id="toggle-detect">הפעל זיהוי בלייב</button>
         </div>
         <input type="file" id="model-upload" accept=".onnx">
-        <input type="text" id="model-url" placeholder="הדבק כאן קישור למודל ONNX" style="margin-top:1vh;max-width:90vw;width:400px;direction:ltr;" value="https://drive.google.com/uc?export=download&id=1qIqsNzKZsNjaOmQ-047kyzJMEI9Xj9eg">
+        <input type="text" id="model-url" placeholder="הדבק כאן קישור למודל ONNX" style="margin-top:1vh;max-width:90vw;width:400px;direction:ltr;" value="https://www.dropbox.com/scl/fi/7266plr2cr6jhybq9is0g/best.onnx?rlkey=z9eni2oe4b5dkowpwfztbj8wd&st=p32fhs1e&dl=1">
         <button id="load-url">טען מודל מכתובת</button>
         <video id="video" autoplay playsinline muted></video>
         <canvas id="canvas"></canvas>
